@@ -3,39 +3,78 @@
 #include <libavutil/log.h>
 #include <stdio.h>
 
+typedef enum {
+	MAIN_PROFILE = 0,
+	LOW_COMPLEXITY_PROFILE = 1,
+	SCALABLE_SAMPLING_RATE_PROFILE = 2,
+	RESERVED_PROFILE = 3
+}AudioType;
+
+typedef enum{
+	MPEG_4_VRESION = 0,
+	MPEG_2_VERSION = 1
+}MpegVersion;
+	
+typedef enum{
+	CRC_HEADER_9_BYTE = 0,
+	NO_CRC_HEADER_7_BYTE = 1
+}ProtectionAbsent;
+
+typedef enum{
+	HZ_96000 = 0,
+	HZ_88200,
+	HZ_64000,
+	HZ_48000,
+	HZ_44100,
+	HZ_32000,
+	HZ_24000,
+	HZ_22050,
+	HZ_16000,
+	HZ_12000,
+	HZ_11025,
+	HZ_8000,
+	HZ_7350,
+}SampleFrequencies;
+
+typedef enum{
+	CHANNEL_1_FRONT_CENTER = 1,
+	CHANNEL_2_FRONT_LEFT_RIGHT = 2,
+	CHANNEL_3_FRONT_CENTER_LEFT_RIGHT = 3,
+	CHANNEL_4_FRONT_CENTER_LEFT_RIGHT_BACK_CENTER = 4,
+}ChannelConfig;
+
 void adts_header(char* szAdtsHeader, int dataLen)
 {
-	int audio_object_type = 2;
-	int sampling_frequency_index = 7;
-	int channel_config = 2;
-
 	int adtsLen = dataLen + 7;
-
+	int freIndex = HZ_44100;
+	int chanCfg = CHANNEL_2_FRONT_LEFT_RIGHT;
+	int profile = LOW_COMPLEXITY_PROFILE;
+	
 	szAdtsHeader[0] = 0xff;//syncword:0xfff
 
-	szAdtsHeader[1] = 0xf0;//syncword:0xfff 
-	szAdtsHeader[1] |= (0 << 3); //id,mpeg version:0 for mpeg-4; 1 for mpeg-2
-	szAdtsHeader[1] |= (0 << 1);//Layer:0
-	szAdtsHeader[1] |= 1;//protection absent:1
+	szAdtsHeader[1] = 0xf0;//syncword:0xfff   syncword: 12bit
+	szAdtsHeader[1] |= (MPEG_2_VERSION << 3); //id 1bit,mpeg version:0 for mpeg-4; 1 for mpeg-2
+	szAdtsHeader[1] |= (0 << 1);//Layer 2bit : always: 00
+	szAdtsHeader[1] |= NO_CRC_HEADER_7_BYTE;//protection absent 1bit: 1 == 7byte  0 == 9byte
 
-	szAdtsHeader[2] = (audio_object_type - 1) << 6;
-	szAdtsHeader[2] |= (sampling_frequency_index & 0x0f) << 2;
-	szAdtsHeader[2] |= (0 << 1);
-	szAdtsHeader[2] |= (channel_config & 0x04) >> 2;
+	szAdtsHeader[2] = (profile - 1) << 6;   //profile  2bit:
+	szAdtsHeader[2] |= (freIndex & 0x0f) << 2;//sampling frequency index 4bit:
+	szAdtsHeader[2] |= (0 << 1);//private_bit 1bit:
+	szAdtsHeader[2] |= (chanCfg >> 2) ;//channel config 3bit:
 
-	szAdtsHeader[3] = (channel_config & 0x03) << 6;
-	szAdtsHeader[3] |= (0 << 5);
-	szAdtsHeader[3] |= (0 << 4);
-	szAdtsHeader[3] |= (0 << 3);
-	szAdtsHeader[3] |= (0 << 2);
-	szAdtsHeader[3] |= (adtsLen & 0x1800) >> 11;
-
-	szAdtsHeader[4] = (uint8_t)((adtsLen & 0x7f8) >> 3);
-
+	szAdtsHeader[3] = (chanCfg & 0x3) << 6;//channel config 3bit:
+	szAdtsHeader[3] |= (0 << 5);//original copy 1bit:
+	szAdtsHeader[3] |= (0 << 4);//home 1bit:
+	szAdtsHeader[3] |= (0 << 3);//copyright identification bit 1bit:
+	szAdtsHeader[3] |= (0 << 2);//copyright identification start 1bit:
+	
+	szAdtsHeader[3] |= (adtsLen >> 11);//acc frame length 13bit:
+	szAdtsHeader[4] = (uint8_t)((adtsLen & 0x7ff) >> 3);
 	szAdtsHeader[5] = (uint8_t)((adtsLen & 0x7) << 5);
-	szAdtsHeader[5] |= 0x1f;
+	
+	szAdtsHeader[5] |= 0x1f;//adts buffer fullness 11bit:
 
-	szAdtsHeader[6] = 0xfc;
+	szAdtsHeader[6] = 0xfc;//number of raw data blocks in frame 2bit:
 }
 
 int main(int argc, char* argv[])
