@@ -34,7 +34,9 @@ int dp_opt(int arr[], int len) {
 		opt[i] = get_max(A, B);
 	}
 	
-	return opt[len - 1];
+	int max = opt[len - 1];
+	free(opt);
+	return max;
 }
 
 /*
